@@ -95,6 +95,7 @@
 
     <!-- Title of statusbar tuner -->
     <string name="status_bar_icons">Status bar icons</string>
+    <string name="status_bar_ims">VoLTE/VoWiFi</string>
 
     <!-- Bluetooth dialog -->
     <string name="bluetooth_is_off">Bluetooth is off</string>
