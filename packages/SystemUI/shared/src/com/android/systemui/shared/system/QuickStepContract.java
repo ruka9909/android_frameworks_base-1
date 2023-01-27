@@ -40,6 +40,10 @@ public class QuickStepContract {
     public static final String LAUNCHER_ACTIVITY_CLASS_NAME =
             "co.aospa.launcher.ParanoidLauncher";
 
+    // Fully qualified name of the Pixel Launcher activity.
+    public static final String NEXUS_LAUNCHER_ACTIVITY_CLASS_NAME =
+            "com.google.android.apps.nexuslauncher.NexusLauncherActivity";
+
     public static final String KEY_EXTRA_SYSUI_PROXY = "extra_sysui_proxy";
     public static final String KEY_EXTRA_WINDOW_CORNER_RADIUS = "extra_window_corner_radius";
     public static final String KEY_EXTRA_SUPPORTS_WINDOW_CORNERS = "extra_supports_window_corners";
