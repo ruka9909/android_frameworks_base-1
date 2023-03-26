@@ -32,4 +32,7 @@
     <dimen name="status_bar_mobile_signal_width">16dp</dimen>
     <dimen name="status_bar_mobile_type_height">9dp</dimen>
     <dimen name="status_bar_mobile_type_width">12dp</dimen>
+
+    <!-- QQS & QS margin top -->
+    <dimen name="qqs_margin_top">16dp</dimen>
 </resources>
