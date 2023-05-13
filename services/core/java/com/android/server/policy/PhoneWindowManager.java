@@ -169,6 +169,7 @@ import android.view.Display;
 import android.view.HapticFeedbackConstants;
 import android.view.IDisplayFoldListener;
 import android.view.InputDevice;
+import android.view.InputFilter;
 import android.view.KeyCharacterMap;
 import android.view.KeyCharacterMap.FallbackAction;
 import android.view.KeyEvent;
@@ -638,7 +639,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private boolean mLockNowPending = false;
 
     private final List<DeviceKeyHandler> mDeviceKeyHandlers = new ArrayList<>();
+    private InputFilter mInputFilter;
+
     private int mTorchActionMode;
+    private boolean mUnhandledTorchPower = false;
 
     private static final int MSG_DISPATCH_MEDIA_KEY_WITH_WAKE_LOCK = 3;
     private static final int MSG_DISPATCH_MEDIA_KEY_REPEAT_WITH_WAKE_LOCK = 4;
@@ -956,6 +960,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             if (!interactive) {
                 if (mTorchActionMode == 0) {
                     wakeUpFromPowerKey(event.getDownTime());
+                } else {
+                    mUnhandledTorchPower = true;
                 }
             }
         } else {
@@ -999,6 +1005,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
 
         final boolean interactive = Display.isOnState(mDefaultDisplay.getState());
+        final boolean torchActionEnabled = mTorchActionMode != 0;
 
         Slog.d(TAG, "powerPress: eventTime=" + eventTime + " interactive=" + interactive
                 + " count=" + count + " beganFromNonInteractive=" + beganFromNonInteractive
@@ -1011,6 +1018,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         } else if (count > 3 && count <= getMaxMultiPressPowerCount()) {
             Slog.d(TAG, "No behavior defined for power press count " + count);
         } else if (count == 1 && interactive) {
+            if (mUnhandledTorchPower && beganFromNonInteractive && torchActionEnabled) {
+                wakeUpFromPowerKey(eventTime);
+                return;
+            }
             if (beganFromNonInteractive) {
                 // The screen off case, where we might want to start dreaming on power button press.
                 attemptToDreamFromShortPowerButtonPress(false, () -> {});
@@ -1071,7 +1082,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     break;
                 }
             }
-        } else if (mTorchActionMode != 0 && beganFromNonInteractive) {
+        }
+        if (mUnhandledTorchPower && torchActionEnabled && beganFromNonInteractive) {
             wakeUpFromPowerKey(eventTime);
         }
     }
@@ -2233,6 +2245,20 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
         if (DEBUG_INPUT) {
             Slog.d(TAG, "" + mDeviceKeyHandlers.size() + " device key handlers loaded");
+        }
+
+        final String deviceInputFilterLibs = res.getString(R.string.config_deviceInputFilterLibs);
+        final String deviceInputFilterClasses = res.getString(R.string.config_deviceInputFilterClasses);
+
+        try {
+            PathClassLoader loader = new PathClassLoader(deviceInputFilterLibs, getClass().getClassLoader());
+            Class<?> klass = loader.loadClass(deviceInputFilterClasses);
+            Constructor<?> constructor = klass.getConstructor(Context.class);
+            mInputFilter = (InputFilter) constructor.newInstance(mContext);
+        } catch (Exception e) {
+            Slog.w(TAG, "Could not instantiate device input filter "
+                    + deviceInputFilterLibs + " from class "
+                    + deviceInputFilterClasses, e);
         }
     }
 
@@ -3462,8 +3488,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     }
 
     @Override
-    public void onKeyguardOccludedChangedLw(boolean occluded) {
-        if (mKeyguardDelegate != null && mKeyguardDelegate.isShowing()) {
+    public void onKeyguardOccludedChangedLw(boolean occluded, boolean waitAppTransition) {
+        if (mKeyguardDelegate != null && waitAppTransition) {
             mPendingKeyguardOccluded = occluded;
             mKeyguardOccludedChanged = true;
         } else {
@@ -5308,6 +5334,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
         mAutofillManagerInternal = LocalServices.getService(AutofillManagerInternal.class);
         mGestureLauncherService = LocalServices.getService(GestureLauncherService.class);
+
+        if (mInputFilter != null) {
+            mWindowManagerInternal.setInputFilter(mInputFilter);
+        }
     }
 
     /** {@inheritDoc} */
